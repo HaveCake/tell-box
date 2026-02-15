@@ -1,4 +1,5 @@
 // TELL-BOX V5.1 - 完整版 (含二维码海报 + 零密钥感知)
+// 已从 Cloudflare KV 迁移到 D1 数据库 (Migrated from KV to D1 Database)
 const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -725,10 +726,13 @@ export default {
       try {
         const { id, pub, profile } = await request.json();
         if (!id || !pub) return err('Missing data');
-        await env.TELL_DB.put('pubkey:' + id, pub);
-        if (profile) {
-          await env.TELL_DB.put('profile:' + id, JSON.stringify(profile));
-        }
+        
+        // 使用 D1 数据库存储用户信息
+        const profileData = profile ? JSON.stringify(profile) : null;
+        await env.DB.prepare(
+          'INSERT OR REPLACE INTO users (id, pubkey, profile) VALUES (?, ?, ?)'
+        ).bind(id, pub, profileData).run();
+        
         return json({ ok: true });
       } catch (e) { return err(e.message, 500); }
     }
@@ -737,12 +741,16 @@ export default {
     if (url.pathname === '/api/resolve' && request.method === 'GET') {
       const id = url.searchParams.get('id');
       if (!id) return err('Missing id');
-      const [pub, pro] = await Promise.all([
-        env.TELL_DB.get('pubkey:' + id),
-        env.TELL_DB.get('profile:' + id)
-      ]);
-      if (!pub) return err('Not found', 404);
-      return json({ pub, profile: pro ? JSON.parse(pro) : null });
+      
+      // 从 D1 数据库查询用户信息
+      const result = await env.DB.prepare(
+        'SELECT pubkey, profile FROM users WHERE id = ?'
+      ).bind(id).first();
+      
+      if (!result || !result.pubkey) return err('Not found', 404);
+      
+      const profile = result.profile ? JSON.parse(result.profile) : null;
+      return json({ pub: result.pubkey, profile });
     }
 
     // 4. API: 发送加密消息 (/api/send)
@@ -750,10 +758,18 @@ export default {
       try {
         const { to, data } = await request.json();
         if (!to || !data) return err('Missing fields');
-        // 消息 Key 格式: msg:{收件人哈希}:{时间戳}_{随机数}
-        const key = 'msg:' + to + ':' + Date.now() + '_' + Math.random().toString(36).slice(2);
-        // 存储 7 天过期
-        await env.TELL_DB.put(key, data, { expirationTtl: 604800 });
+        
+        // 生成消息 ID: msg:{收件人哈希}:{时间戳}_{随机数}
+        const timestamp = Date.now();
+        const msgId = 'msg:' + to + ':' + timestamp + '_' + Math.random().toString(36).slice(2);
+        // 计算过期时间: 7天后 (604800秒)
+        const expiresAt = Math.floor(timestamp / 1000) + 604800;
+        
+        // 存储到 D1 数据库
+        await env.DB.prepare(
+          'INSERT INTO messages (id, recipient_addr, encrypted_data, timestamp, expires_at) VALUES (?, ?, ?, ?, ?)'
+        ).bind(msgId, to, data, timestamp, expiresAt).run();
+        
         return json({ ok: true });
       } catch (e) { return err(e.message, 500); }
     }
@@ -764,19 +780,34 @@ export default {
         const addr = url.searchParams.get('addr');
         if (!addr) return err('Missing addr');
         const limit = parseInt(url.searchParams.get('limit')) || 15;
-        const cursor = url.searchParams.get('cursor');
-
-        const list = await env.TELL_DB.list({ prefix: 'msg:' + addr + ':', limit, cursor });
-        const msgs = await Promise.all(list.keys.map(async k => {
-          const v = await env.TELL_DB.get(k.name);
-          // 提取 Key 中的时间戳
-          const ts = k.name.split(':')[2].split('_')[0];
-          return { ts, data: v };
-        }));
-
-        // 按时间倒序
-        msgs.sort((a, b) => Number(b.ts) - Number(a.ts));
-        return json({ msgs, cursor: list.list_complete ? null : list.cursor });
+        // 支持 offset 和 cursor（为了兼容性，cursor 也作为 offset 使用）
+        const offset = parseInt(url.searchParams.get('offset') || url.searchParams.get('cursor')) || 0;
+        
+        // 获取当前时间戳（秒）用于过滤过期消息
+        const now = Math.floor(Date.now() / 1000);
+        
+        // 从 D1 数据库查询消息，使用 OFFSET 分页
+        const { results } = await env.DB.prepare(
+          'SELECT encrypted_data, timestamp FROM messages WHERE recipient_addr = ? AND expires_at > ? ORDER BY timestamp DESC LIMIT ? OFFSET ?'
+        ).bind(addr, now, limit, offset).all();
+        
+        // 转换数据格式以匹配原 API 响应
+        const msgs = results.map(r => ({ ts: r.timestamp.toString(), data: r.encrypted_data }));
+        
+        // 计算下一页的 offset，如果结果少于 limit，说明没有更多了
+        const nextOffset = results.length < limit ? null : offset + limit;
+        
+        // 定期清理过期消息（简单的实现：每次查询顺便清理）
+        if (offset === 0) {
+          // 只在第一页时清理，避免每次分页都清理
+          await env.DB.prepare('DELETE FROM messages WHERE expires_at < ?').bind(now).run();
+        }
+        
+        return json({ 
+          msgs, 
+          cursor: nextOffset, // 兼容原有的 cursor 字段名，但实际是 offset
+          offset: nextOffset  // 同时提供 offset 字段供新客户端使用
+        });
       } catch (e) { return err(e.message, 500); }
     }
 
