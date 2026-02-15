@@ -19,6 +19,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "tailwindcss": "^3.4.19",
     "wrangler": "^3.0.0"
   }
 }
