@@ -296,6 +296,9 @@ async function createIdentity() {
   const name = $('setup-name').value.trim();
   if(!name) { $('setup-name').style.animation='shake 0.3s'; setTimeout(()=>$('setup-name').style.animation='',300); return toast('请输入昵称','error'); }
   if(!selectedAvatar) return toast('请选择头像','error');
+  if (!window.crypto || !window.crypto.subtle) {
+    return toast('浏览器不支持加密 API，请确保使用 HTTPS 访问', 'error');
+  }
   try {
     const k = await crypto.subtle.generateKey({ name:"RSA-OAEP", modulusLength:2048, publicExponent:new Uint8Array([1,0,1]), hash:"SHA-256" }, true, ["encrypt","decrypt"]);
     const pub = B(await crypto.subtle.exportKey("spki", k.publicKey));
@@ -310,7 +313,7 @@ async function createIdentity() {
     localStorage.setItem('tell_profile', JSON.stringify(profile));
     loadProfile();
     toast('🎉 信箱创建成功！', 'success');
-  } catch(e) { toast('创建失败: ' + e.message, 'error'); }
+  } catch(e) { console.error('createIdentity error:', e); toast('创建失败: ' + e.message, 'error'); }
 }
 
 function loadProfile() {
@@ -681,6 +684,12 @@ export default {
           'Access-Control-Allow-Headers': 'Content-Type'
         }
       });
+    }
+
+    // 1.5 强制 HTTPS 重定向
+    if (url.protocol === 'http:') {
+      url.protocol = 'https:';
+      return Response.redirect(url.toString(), 301);
     }
 
     // 响应助手函数
