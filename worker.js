@@ -758,7 +758,7 @@ export default {
     return new Response(html, { 
       headers: { 
         'Content-Type': 'text/html;charset=UTF-8',
-        // 必须加上这个 CSP，否则浏览器会拦截 qrcode.js 的加载
+        // CSP 需要 'unsafe-inline' 以支持内联的 JS 和 CSS（已将所有外部 CDN 依赖内联）
         'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self';"
       } 
     });
