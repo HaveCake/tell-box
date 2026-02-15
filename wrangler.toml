@@ -6,4 +6,4 @@ compatibility_date = "2024-01-01"
 # After creating your KV namespace, replace "placeholder" with your actual namespace ID
 [[kv_namespaces]]
 binding = "TELL_DB"
-id = "placeholder"
+id = "033f7fbbef1c41f8a55a50efc61150ed"
