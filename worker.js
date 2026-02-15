@@ -169,10 +169,16 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
     <div id="page-inbox" class="page">
       <div class="flex justify-between items-center mb-4 px-1">
         <h2 class="text-2xl font-bold flex items-center gap-2">收信箱 <span class="text-2xl">📬</span></h2>
-        <button onclick="loadInbox()" id="refreshBtn" class="text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium btn-press flex items-center gap-1.5">
-          <svg id="refreshIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-          刷新
-        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="toggleAutoRefresh()" id="autoRefreshBtn" class="text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium btn-press flex items-center gap-1.5" title="自动刷新">
+            <svg id="autoRefreshIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <span id="autoRefreshLabel">自动</span>
+          </button>
+          <button onclick="loadInbox()" id="refreshBtn" class="text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium btn-press flex items-center gap-1.5">
+            <svg id="refreshIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            刷新
+          </button>
+        </div>
       </div>
       <div id="inbox" class="space-y-3">
         <div id="inbox-empty" class="text-center py-16 text-gray-400 text-sm bg-white dark:bg-gray-800/80 rounded-2xl border border-gray-100 dark:border-gray-700/50">
@@ -281,6 +287,9 @@ function nav(page) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   $('page-'+page).classList.add('active');
   $('nav-'+page).classList.add('active');
+  if (page === 'inbox') {
+    if (localStorage.getItem('tell_auto_refresh') === '1') startAutoRefresh();
+  } else { stopAutoRefresh(); }
 }
 
 // ==================== 核心逻辑 ====================
@@ -484,6 +493,27 @@ async function loadInbox(cursor) {
     }
     if(data.cursor) { currentCursor = data.cursor; $('pagination').classList.remove('hidden'); } else { currentCursor = null; $('pagination').classList.add('hidden'); }
   } catch(e) { if(!cursor) inboxEl.innerHTML = ''; toast('拉取失败', 'error'); }
+}
+
+let autoRefreshTimer = null;
+const AUTO_REFRESH_INTERVAL = 30000;
+function toggleAutoRefresh() {
+  if (autoRefreshTimer) { stopAutoRefresh(); localStorage.removeItem('tell_auto_refresh'); }
+  else { startAutoRefresh(); localStorage.setItem('tell_auto_refresh', '1'); }
+}
+function startAutoRefresh() {
+  if (autoRefreshTimer) return;
+  loadInbox();
+  autoRefreshTimer = setInterval(() => loadInbox(), AUTO_REFRESH_INTERVAL);
+  $('autoRefreshBtn').style.borderColor = 'rgb(34 197 94)';
+  $('autoRefreshIcon').classList.add('animate-spin', 'text-green-600');
+  $('autoRefreshLabel').textContent = '自动中';
+}
+function stopAutoRefresh() {
+  if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+  $('autoRefreshBtn').style.borderColor = '';
+  $('autoRefreshIcon').classList.remove('animate-spin', 'text-green-600');
+  $('autoRefreshLabel').textContent = '自动';
 }
 
 // ==================== 分享与海报 ====================
