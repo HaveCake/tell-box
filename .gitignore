@@ -1,0 +1,19 @@
+# Wrangler files
+.wrangler/
+wrangler.toml.local
+.dev.vars
+.env
+
+# Node modules if using npm/yarn
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
