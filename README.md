@@ -14,28 +14,33 @@
    - 访问 [Cloudflare Dashboard](https://dash.cloudflare.com/)
    - 登录你的账号（没有账号的话免费注册一个）
 
-3. **创建 KV 命名空间**
-   - 进入左侧菜单：**Workers & Pages** → **KV**
-   - 点击 **Create namespace**
-   - 命名空间名称输入：`TELL_DB`
-   - 创建完成后，记下生成的 **Namespace ID**（类似：`xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`）
+3. **创建 D1 数据库**
+   - 进入左侧菜单：**Workers & Pages** → **D1**
+   - 点击 **Create database**
+   - 数据库名称输入：`tell_db`
+   - 创建完成后，记下生成的 **Database ID**（类似：`2d489408-c599-47f2-9094-45ba8077fb91`）
 
-4. **部署 Worker**
+4. **初始化数据库表结构**
+   - 在 D1 数据库详情页面，点击 **Console** 标签
+   - 复制 `schema.sql` 文件的内容
+   - 粘贴到控制台并执行，创建 `users` 和 `messages` 表
+
+5. **部署 Worker**
    - 返回 **Workers & Pages** 页面
    - 点击 **Create application** → **Create Worker**
    - 或者点击 **Connect to Git** (连接 Git)
    - 选择你 Fork 的 `tell-box` 仓库
    - Cloudflare 会自动检测到 `wrangler.toml` 配置
 
-5. **配置 KV 绑定**
+6. **配置 D1 绑定**
    - 在 Worker 设置页面，找到 **Settings** → **Variables**
-   - 在 **KV Namespace Bindings** 部分
+   - 在 **D1 Database Bindings** 部分
    - 添加绑定：
-     - Variable name: `TELL_DB`
-     - KV namespace: 选择刚才创建的 `TELL_DB`
+     - Variable name: `DB`
+     - D1 database: 选择刚才创建的 `tell_db`
    - 保存配置
 
-6. **部署完成**
+7. **部署完成**
    - 点击 **Save and Deploy**
    - 你会获得一个 `*.workers.dev` 域名
    - 访问这个域名即可使用应用
@@ -51,12 +56,15 @@ npm install -g wrangler
 # 2. 登录 Cloudflare
 wrangler login
 
-# 3. 创建 KV 命名空间
-wrangler kv:namespace create "TELL_DB"
+# 3. 创建 D1 数据库
+wrangler d1 create tell_db
 
-# 4. 复制返回的 ID，更新 wrangler.toml 中的 id = "placeholder"
+# 4. 复制返回的 database_id，更新 wrangler.toml 中的 database_id
 
-# 5. 部署
+# 5. 初始化数据库表结构
+wrangler d1 execute tell_db --file=./schema.sql
+
+# 6. 部署
 wrangler deploy
 ```
 
@@ -96,15 +104,15 @@ wrangler dev
 - `name`: Worker 名称
 - `main`: 入口文件（worker.js）
 - `compatibility_date`: 兼容性日期
-- `kv_namespaces`: KV 存储绑定配置
+- `d1_databases`: D1 数据库绑定配置
 
-### KV 存储
+### D1 数据库
 
-应用使用 Cloudflare KV 存储：
+应用使用 Cloudflare D1 数据库存储：
 
-- `pubkey:{id}` - 用户公钥
-- `profile:{id}` - 用户资料（昵称、头像）
-- `msg:{addr}:{timestamp}_{random}` - 加密消息（7天自动过期）
+- `users` 表 - 用户公钥和资料（id, pubkey, profile）
+- `messages` 表 - 加密消息（id, recipient_addr, encrypted_data, timestamp, expires_at）
+- 消息自动过期机制：7天后自动清理
 
 ## 🌟 功能特性
 
@@ -113,13 +121,13 @@ wrangler dev
 - ✅ 自动生成分享二维码
 - ✅ 暗黑模式支持
 - ✅ 移动端适配
-- ✅ 无需数据库，基于 Cloudflare KV
+- ✅ 基于 Cloudflare D1 数据库，更高的免费额度
 - ✅ 全球 CDN 加速
 
 ## 📄 技术栈
 
 - Cloudflare Workers - 无服务器计算平台
-- Cloudflare KV - 键值存储
+- Cloudflare D1 - SQL 数据库（SQLite）
 - Web Crypto API - 端到端加密
 - Tailwind CSS - 样式框架
 - QRCode.js - 二维码生成
@@ -147,16 +155,21 @@ An anonymous encrypted messaging app based on Cloudflare Workers, supporting end
 
 1. **Fork this repository**
 2. **Log in to [Cloudflare Dashboard](https://dash.cloudflare.com/)**
-3. **Create KV namespace**
-   - Go to **Workers & Pages** → **KV**
-   - Click **Create namespace**, name it `TELL_DB`
-4. **Deploy Worker**
+3. **Create D1 database**
+   - Go to **Workers & Pages** → **D1**
+   - Click **Create database**, name it `tell_db`
+   - Note down the **Database ID**
+4. **Initialize database schema**
+   - In D1 database details page, click **Console** tab
+   - Copy content from `schema.sql` file
+   - Paste and execute to create `users` and `messages` tables
+5. **Deploy Worker**
    - Go to **Workers & Pages** → **Create application**
    - Choose **Connect to Git** and select your forked repository
-5. **Configure KV binding**
-   - In Worker settings → **Variables** → **KV Namespace Bindings**
-   - Add binding: Variable name `TELL_DB`, select the namespace you created
-6. **Deploy**
+6. **Configure D1 binding**
+   - In Worker settings → **Variables** → **D1 Database Bindings**
+   - Add binding: Variable name `DB`, select the `tell_db` database you created
+7. **Deploy**
 
 ### Method 2: Deploy with Wrangler CLI
 
@@ -167,10 +180,13 @@ npm install -g wrangler
 # Login
 wrangler login
 
-# Create KV namespace
-wrangler kv:namespace create "TELL_DB"
+# Create D1 database
+wrangler d1 create tell_db
 
-# Update the ID in wrangler.toml
+# Update the database_id in wrangler.toml
+
+# Initialize database schema
+wrangler d1 execute tell_db --file=./schema.sql
 
 # Deploy
 wrangler deploy

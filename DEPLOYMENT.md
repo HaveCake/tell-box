@@ -17,15 +17,21 @@
 2. 如果没有账号，点击 "Sign Up" 免费注册
 3. 登录你的 Cloudflare 账号
 
-#### 3. 创建 KV 存储空间
+#### 3. 创建 D1 数据库
 1. 在左侧菜单找到 **Workers & Pages**
-2. 点击 **KV** 标签
-3. 点击 **Create namespace** 按钮
-4. 命名空间名称输入：`TELL_DB`
-5. 点击 **Add** 创建
-6. **重要**：记下创建后显示的 **Namespace ID**（格式类似：`a1b2c3d4e5f6789012345678901234567`）
+2. 点击 **D1** 标签
+3. 点击 **Create database** 按钮
+4. 数据库名称输入：`tell_db`
+5. 点击 **Create** 创建
+6. **重要**：记下创建后显示的 **Database ID**（格式类似：`2d489408-c599-47f2-9094-45ba8077fb91`）
 
-#### 4. 连接 GitHub 部署
+#### 4. 初始化数据库表结构
+1. 在 D1 数据库详情页，点击 **Console** 标签
+2. 复制仓库中 `schema.sql` 文件的全部内容
+3. 粘贴到控制台中
+4. 点击 **Execute** 执行，创建 `users` 和 `messages` 表
+
+#### 5. 连接 GitHub 部署
 1. 返回 **Workers & Pages** 主页
 2. 点击 **Create application** 按钮
 3. 选择 **Pages** 标签
@@ -34,7 +40,7 @@
 6. 在仓库列表中找到并选择你 Fork 的 `tell-box` 仓库
 7. 点击 **Begin setup**
 
-#### 5. 配置构建设置
+#### 6. 配置构建设置
 由于这是一个 Worker 项目，不是 Pages 项目，我们需要使用 Workers 方式：
 
 **正确方式：**
@@ -45,24 +51,24 @@
 5. 给 Worker 起个名字（例如：`tell-box` 或 `my-tell-box`）
 6. 点击 **Deploy**
 
-#### 6. 上传代码
+#### 7. 上传代码
 1. 在 Worker 创建完成后，点击 **Quick edit**
 2. 删除默认代码
 3. 复制你仓库中的 `worker.js` 全部内容
 4. 粘贴到编辑器中
 5. 点击 **Save and Deploy**
 
-#### 7. 绑定 KV 存储
+#### 8. 绑定 D1 数据库
 1. 点击上方的 **Settings** 标签
 2. 在左侧找到 **Variables** 
-3. 滚动到 **KV Namespace Bindings** 部分
+3. 滚动到 **D1 Database Bindings** 部分
 4. 点击 **Add binding** 按钮
 5. 填写：
-   - **Variable name**: `TELL_DB`（必须完全一致）
-   - **KV namespace**: 选择你之前创建的 `TELL_DB`
+   - **Variable name**: `DB`（必须完全一致）
+   - **D1 database**: 选择你之前创建的 `tell_db`
 6. 点击 **Save**
 
-#### 8. 完成！
+#### 9. 完成！
 1. 点击顶部的 **Worker name** 链接回到概览页
 2. 你会看到类似 `https://your-worker.workers.dev` 的访问地址
 3. 点击这个地址即可访问你部署的应用！
@@ -94,34 +100,45 @@ wrangler login
 ```
 这会打开浏览器让你授权
 
-4. **创建 KV 命名空间**
+4. **创建 D1 数据库**
 ```bash
-wrangler kv:namespace create "TELL_DB"
+wrangler d1 create tell_db
 ```
 
 执行后会看到类似输出：
 ```
-🌀 Creating namespace with title "tell-box-TELL_DB"
+🌀 Creating database tell_db
 ✨ Success!
-Add the following to your configuration file in your kv_namespaces array:
-{ binding = "TELL_DB", id = "a1b2c3d4e5f6789012345678901234567" }
+Add the following to your wrangler.toml:
+[[d1_databases]]
+binding = "DB"
+database_name = "tell_db"
+database_id = "2d489408-c599-47f2-9094-45ba8077fb91"
 ```
 
 5. **更新 wrangler.toml**
-编辑 `wrangler.toml` 文件，将 `id = "placeholder"` 替换为上一步获得的实际 ID：
+编辑 `wrangler.toml` 文件，将 `database_id` 替换为上一步获得的实际 ID：
 
 ```toml
-[[kv_namespaces]]
-binding = "TELL_DB"
-id = "a1b2c3d4e5f6789012345678901234567"  # 替换为你的实际 ID
+[[d1_databases]]
+binding = "DB"
+database_name = "tell_db"
+database_id = "2d489408-c599-47f2-9094-45ba8077fb91"  # 替换为你的实际 ID
 ```
 
-6. **部署到 Cloudflare**
+6. **初始化数据库表结构**
+```bash
+wrangler d1 execute tell_db --file=./schema.sql
+```
+
+这会在数据库中创建 `users` 和 `messages` 表。
+
+7. **部署到 Cloudflare**
 ```bash
 wrangler deploy
 ```
 
-7. **完成！**
+8. **完成！**
 部署成功后会显示你的 Worker 地址，类似：
 ```
 Published tell-box (0.01 sec)
@@ -142,7 +159,7 @@ npm run dev
 
 访问 `http://localhost:8787` 即可看到本地运行的应用。
 
-**注意**：本地开发时，KV 存储会使用本地模拟，数据不会同步到线上。
+**注意**：本地开发时，D1 数据库会使用本地模拟，数据不会同步到线上。
 
 ### 自定义域名
 
@@ -190,15 +207,21 @@ This application is pre-configured for one-click deployment to Cloudflare Worker
 2. Sign up for free if you don't have an account
 3. Log in to your Cloudflare account
 
-#### 3. Create KV Namespace
+#### 3. Create D1 Database
 1. Find **Workers & Pages** in the left menu
-2. Click the **KV** tab
-3. Click **Create namespace**
-4. Name it: `TELL_DB`
-5. Click **Add**
-6. **Important**: Note down the **Namespace ID** (format: `a1b2c3d4e5f6789012345678901234567`)
+2. Click the **D1** tab
+3. Click **Create database**
+4. Name it: `tell_db`
+5. Click **Create**
+6. **Important**: Note down the **Database ID** (format: `2d489408-c599-47f2-9094-45ba8077fb91`)
 
-#### 4. Create Worker
+#### 4. Initialize Database Schema
+1. In the D1 database details page, click **Console** tab
+2. Copy all content from `schema.sql` file in your repository
+3. Paste into the console
+4. Click **Execute** to create `users` and `messages` tables
+
+#### 5. Create Worker
 1. Go back to **Workers & Pages** home
 2. Click **Create application**
 3. Select **Workers** tab
@@ -206,24 +229,24 @@ This application is pre-configured for one-click deployment to Cloudflare Worker
 5. Name your worker (e.g., `tell-box`)
 6. Click **Deploy**
 
-#### 5. Upload Code
+#### 6. Upload Code
 1. After worker is created, click **Quick edit**
 2. Delete default code
 3. Copy all content from `worker.js` in your repository
 4. Paste into the editor
 5. Click **Save and Deploy**
 
-#### 6. Bind KV Storage
+#### 7. Bind D1 Database
 1. Click **Settings** tab
 2. Find **Variables** in the left sidebar
-3. Scroll to **KV Namespace Bindings**
+3. Scroll to **D1 Database Bindings**
 4. Click **Add binding**
 5. Fill in:
-   - **Variable name**: `TELL_DB` (must be exact)
-   - **KV namespace**: Select your `TELL_DB` namespace
+   - **Variable name**: `DB` (must be exact)
+   - **D1 database**: Select your `tell_db` database
 6. Click **Save**
 
-#### 7. Done!
+#### 8. Done!
 1. Click the **Worker name** link at the top to return to overview
 2. You'll see an access URL like `https://your-worker.workers.dev`
 3. Click it to access your deployed app!
@@ -254,15 +277,20 @@ npm install
 wrangler login
 ```
 
-4. **Create KV Namespace**
+4. **Create D1 Database**
 ```bash
-wrangler kv:namespace create "TELL_DB"
+wrangler d1 create tell_db
 ```
 
 5. **Update wrangler.toml**
-Edit `wrangler.toml` and replace `id = "placeholder"` with your actual namespace ID.
+Edit `wrangler.toml` and update the `database_id` with your actual database ID.
 
-6. **Deploy**
+6. **Initialize Database Schema**
+```bash
+wrangler d1 execute tell_db --file=./schema.sql
+```
+
+7. **Deploy**
 ```bash
 wrangler deploy
 ```
@@ -306,13 +334,14 @@ wrangler deploy
 ## 故障排除 / Troubleshooting
 
 ### 问题：访问 Worker 地址显示 "Error 1101"
-**解决**：检查是否已正确绑定 KV 命名空间，变量名必须是 `TELL_DB`
+**解决**：检查是否已正确绑定 D1 数据库，变量名必须是 `DB`
 
 ### 问题：无法发送或接收消息
 **解决**：
-1. 确认 KV 命名空间已创建并绑定
-2. 检查浏览器控制台是否有错误
-3. 确认 Worker 代码已正确部署
+1. 确认 D1 数据库已创建并绑定
+2. 确认已执行 `schema.sql` 初始化数据库表结构
+3. 检查浏览器控制台是否有错误
+4. 确认 Worker 代码已正确部署
 
 ### 问题：Wrangler 命令找不到
 **解决**：确保已全局安装 wrangler: `npm install -g wrangler`
