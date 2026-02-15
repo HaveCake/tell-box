@@ -221,6 +221,7 @@ const MAX_CHARS = 5000;
 let currentCursor = null;
 let recipientPubKey = null;
 let recipientInfo = null;
+let recipientAddr = null;
 let selectedAvatar = null;
 
 // ==================== Toast & Utils ====================
@@ -299,7 +300,7 @@ async function createIdentity() {
     const k = await crypto.subtle.generateKey({ name:"RSA-OAEP", modulusLength:2048, publicExponent:new Uint8Array([1,0,1]), hash:"SHA-256" }, true, ["encrypt","decrypt"]);
     const pub = B(await crypto.subtle.exportKey("spki", k.publicKey));
     const pri = B(await crypto.subtle.exportKey("pkcs8", k.privateKey));
-    const addr = (await sha256hex(pub)).substring(0, 16);
+    const addr = Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b => b.toString(16).padStart(2,'0')).join('');
     const profile = { name, avatar: selectedAvatar };
     const res = await fetch('/api/register', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ id: addr, pub, profile }) });
     if(!res.ok) throw new Error('注册失败');
@@ -361,6 +362,7 @@ async function handleUrlParams() {
       const data = await res.json();
       recipientPubKey = data.pub;
       recipientInfo = data.profile || { name: '匿名用户', avatar: '💌' };
+      recipientAddr = toAddr;
       nav('send');
       updateSendPage();
     } else { toast('链接无效或已过期', 'error'); }
@@ -426,8 +428,7 @@ async function send() {
   btn.disabled = true;
   try {
     const encrypted = await hybridEncrypt(recipientPubKey, msg);
-    const recipientHash = (await sha256hex(recipientPubKey)).substring(0, 16);
-    const res = await fetch('/api/send', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ to: recipientHash, data: encrypted }) });
+    const res = await fetch('/api/send', { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ to: recipientAddr, data: encrypted }) });
     if(res.ok) {
       $('msg').value = '';
       updateCharCount();
