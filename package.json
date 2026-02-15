@@ -7,8 +7,10 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
-    "kv:list": "wrangler kv:namespace list",
-    "kv:create": "wrangler kv:namespace create TELL_DB"
+    "d1:list": "wrangler d1 list",
+    "d1:create": "wrangler d1 create tell_db",
+    "d1:init": "wrangler d1 execute tell_db --file=./schema.sql",
+    "d1:query": "wrangler d1 execute tell_db --command"
   },
   "keywords": [
     "cloudflare-workers",
