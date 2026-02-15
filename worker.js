@@ -72,7 +72,8 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
     </div>
     <button onclick="toggleTheme()" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition btn-press" aria-label="主题">
       <svg id="icon-sun" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-      <svg id="icon-moon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+      <svg id="icon-moon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+      <svg id="icon-system" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
     </button>
   </header>
 
@@ -249,17 +250,31 @@ window.onload = function() {
   handleUrlParams();
 }
 
-function initTheme() {
-  const dark = localStorage.theme==='dark' || (!('theme' in localStorage) && matchMedia('(prefers-color-scheme:dark)').matches);
+function applyTheme(dark) {
   document.documentElement.classList.toggle('dark', dark);
-  $('icon-sun').classList.toggle('hidden', !dark);
-  $('icon-moon').classList.toggle('hidden', dark);
 }
+function updateThemeIcon() {
+  const mode = localStorage.theme || 'system';
+  $('icon-sun').classList.toggle('hidden', mode !== 'light');
+  $('icon-moon').classList.toggle('hidden', mode !== 'dark');
+  $('icon-system').classList.toggle('hidden', mode !== 'system');
+}
+function initTheme() {
+  const mode = localStorage.theme || 'system';
+  if (mode === 'dark') applyTheme(true);
+  else if (mode === 'light') applyTheme(false);
+  else applyTheme(matchMedia('(prefers-color-scheme:dark)').matches);
+  updateThemeIcon();
+}
+matchMedia('(prefers-color-scheme:dark)').addEventListener('change', function(e) {
+  if (!localStorage.theme) applyTheme(e.matches);
+});
 function toggleTheme() {
-  const d = document.documentElement.classList.toggle('dark');
-  localStorage.theme = d ? 'dark' : 'light';
-  $('icon-sun').classList.toggle('hidden', !d);
-  $('icon-moon').classList.toggle('hidden', d);
+  const mode = localStorage.theme || 'system';
+  if (mode === 'system') { localStorage.theme = 'light'; applyTheme(false); }
+  else if (mode === 'light') { localStorage.theme = 'dark'; applyTheme(true); }
+  else { localStorage.removeItem('theme'); applyTheme(matchMedia('(prefers-color-scheme:dark)').matches); }
+  updateThemeIcon();
 }
 function nav(page) {
   document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
