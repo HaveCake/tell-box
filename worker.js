@@ -693,6 +693,9 @@ function roundRect(ctx, x, y, w, h, r) {
 </html>`;
 
 // ==================== Cloudflare Worker 后端逻辑（完整合并版） ====================
+// 常量定义
+const MESSAGE_EXPIRY_SECONDS = 604800; // 7天消息过期时间 (7 * 24 * 60 * 60)
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -762,8 +765,8 @@ export default {
         // 生成消息 ID: msg:{收件人哈希}:{时间戳}_{随机数}
         const timestamp = Date.now();
         const msgId = 'msg:' + to + ':' + timestamp + '_' + Math.random().toString(36).slice(2);
-        // 计算过期时间: 7天后 (604800秒)
-        const expiresAt = Math.floor(timestamp / 1000) + 604800;
+        // 计算过期时间: 7天后
+        const expiresAt = Math.floor(timestamp / 1000) + MESSAGE_EXPIRY_SECONDS;
         
         // 存储到 D1 数据库
         await env.DB.prepare(
@@ -797,10 +800,10 @@ export default {
         // 计算下一页的 offset，如果结果少于 limit，说明没有更多了
         const nextOffset = results.length < limit ? null : offset + limit;
         
-        // 定期清理过期消息（简单的实现：每次查询顺便清理）
+        // 定期清理过期消息（非阻塞式：只在第一页时触发，不等待完成）
         if (offset === 0) {
-          // 只在第一页时清理，避免每次分页都清理
-          await env.DB.prepare('DELETE FROM messages WHERE expires_at < ?').bind(now).run();
+          // 异步清理，不阻塞响应
+          env.DB.prepare('DELETE FROM messages WHERE expires_at < ?').bind(now).run().catch(() => {});
         }
         
         return json({ 

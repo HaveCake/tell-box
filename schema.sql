@@ -9,8 +9,6 @@ CREATE TABLE IF NOT EXISTS users (
   created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
 );
 
-CREATE INDEX idx_users_id ON users(id);
-
 -- 消息表：存储加密消息
 CREATE TABLE IF NOT EXISTS messages (
   id TEXT PRIMARY KEY,
