@@ -1,0 +1,15 @@
+name = "tell-box"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# KV namespace binding for storing messages and user data
+[[kv_namespaces]]
+binding = "TELL_DB"
+id = "placeholder"
+
+# Configure the deployment
+[env.production]
+name = "tell-box"
+kv_namespaces = [
+  { binding = "TELL_DB", id = "placeholder" }
+]
