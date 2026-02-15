@@ -295,6 +295,7 @@ async function createIdentity() {
   const name = $('setup-name').value.trim();
   if(!name) { $('setup-name').style.animation='shake 0.3s'; setTimeout(()=>$('setup-name').style.animation='',300); return toast('请输入昵称','error'); }
   if(!selectedAvatar) return toast('请选择头像','error');
+  if(!window.crypto || !window.crypto.subtle) return toast('你的浏览器不支持加密功能，请使用现代浏览器并通过 HTTPS 访问','error');
   try {
     const k = await crypto.subtle.generateKey({ name:"RSA-OAEP", modulusLength:2048, publicExponent:new Uint8Array([1,0,1]), hash:"SHA-256" }, true, ["encrypt","decrypt"]);
     const pub = B(await crypto.subtle.exportKey("spki", k.publicKey));
@@ -384,6 +385,7 @@ function updateSendPage() {
 
 // ==================== 加密发送 ====================
 async function hybridEncrypt(pubKeyB64, plaintext) {
+  if(!window.crypto || !window.crypto.subtle) throw new Error('你的浏览器不支持加密功能，请使用现代浏览器并通过 HTTPS 访问');
   const aesKey = await crypto.subtle.generateKey({ name:"AES-GCM", length:256 }, true, ["encrypt"]);
   const aesRaw = await crypto.subtle.exportKey("raw", aesKey);
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -398,6 +400,7 @@ async function hybridEncrypt(pubKeyB64, plaintext) {
 }
 
 async function hybridDecrypt(priKeyB64, cipherB64) {
+  if(!window.crypto || !window.crypto.subtle) throw new Error('你的浏览器不支持加密功能，请使用现代浏览器并通过 HTTPS 访问');
   const buf = A(cipherB64);
   const encAes = buf.slice(0, 256);
   const iv = buf.slice(256, 268);
