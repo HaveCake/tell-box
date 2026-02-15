@@ -10,6 +10,7 @@ const html = `<!DOCTYPE html>
 <meta property="og:description" content="你的秘密，只有TA能看到。端到端加密，完全匿名。">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>if(!window.crypto||!window.crypto.subtle){document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/webcrypto-liner@1.4.3/build/webcrypto-liner.shim.min.js"></scr'+'ipt>')}</script>
 <script>
   tailwind.config = {
     darkMode: 'class',
