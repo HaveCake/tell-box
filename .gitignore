@@ -17,3 +17,9 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Build artifacts
+tailwind.config.js
+input.css
+output.css
+package-lock.json
