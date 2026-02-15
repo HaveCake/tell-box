@@ -632,6 +632,10 @@ function showPlatformTip(platform, tip) {
 }
 
 // ==================== 备份恢复 ====================
+// 备份包含用户的完整身份信息（公钥、私钥、地址、资料）
+// 恢复时会自动覆盖 KV 中相同地址的数据，无需手动清理
+// Backup contains complete user identity (public key, private key, address, profile)
+// Restore will automatically overwrite data in KV for the same address, no manual cleanup needed
 function exportBackup() {
   const data = { v:5, pub:localStorage.getItem('tell_pub'), pri:localStorage.getItem('tell_pri'), addr:localStorage.getItem('tell_addr'), profile:JSON.parse(localStorage.getItem('tell_profile')||'{}') };
   const blob = new Blob([JSON.stringify(data)], {type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='tell-backup.json'; a.click(); toast('📦 备份已下载','success');
@@ -642,6 +646,8 @@ async function handleImportFile(e) {
   try {
     const d = JSON.parse(await f.text());
     if(!d.pub || !d.pri) throw new Error('无效文件');
+    // 恢复身份：使用备份的地址和密钥，会自动覆盖 KV 中的旧数据
+    // Restore identity: uses backed up address and keys, will automatically overwrite old data in KV
     localStorage.setItem('tell_pub',d.pub); localStorage.setItem('tell_pri',d.pri); localStorage.setItem('tell_addr',d.addr); localStorage.setItem('tell_profile',JSON.stringify(d.profile));
     await fetch('/api/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:d.addr, pub:d.pub, profile:d.profile}) });
     loadProfile(); toast('✅ 恢复成功','success');
@@ -668,6 +674,35 @@ function roundRect(ctx, x, y, w, h, r) {
 </html>`;
 
 // ==================== Cloudflare Worker 后端逻辑（完整合并版） ====================
+// 
+// KV 存储数据管理说明 (KV Storage Data Management)
+// ================================================
+// 本应用使用 Cloudflare KV 存储三类数据：
+// This application uses Cloudflare KV to store three types of data:
+//
+// 1. pubkey:{addr} - 用户公钥 (User public key)
+// 2. profile:{addr} - 用户资料 (User profile: name, avatar)
+// 3. msg:{addr}:{timestamp}_{random} - 加密消息 (Encrypted messages, 7天自动过期 / Auto-expires in 7 days)
+//
+// 数据生命周期 (Data Lifecycle):
+// - 创建新身份时，生成随机 addr，创建对应的 pubkey 和 profile 记录
+//   When creating new identity, generates random addr, creates pubkey and profile records
+// - 修改资料时，使用相同 addr 覆盖更新 profile 记录
+//   When updating profile, overwrites profile record with same addr
+// - 恢复备份时，使用备份的 addr 覆盖更新 pubkey 和 profile 记录
+//   When restoring backup, overwrites pubkey and profile records with backed up addr
+// - 消息自动在 7 天后过期删除
+//   Messages automatically expire and are deleted after 7 days
+//
+// 重要：无需手动清除 KV 数据！
+// IMPORTANT: No need to manually clear KV data!
+// - 相同 addr 的数据会自动覆盖（幂等操作）
+//   Data for same addr will be automatically overwritten (idempotent operation)
+// - 不同 addr 的旧数据不会造成冲突，仅占用存储空间
+//   Old data with different addr won't cause conflicts, only uses storage space
+// - 如需彻底清理旧数据，可在 Cloudflare Dashboard 中手动删除特定 key
+//   To thoroughly clean old data, manually delete specific keys in Cloudflare Dashboard
+//
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -691,10 +726,14 @@ export default {
     const err = (m, s = 400) => json({ error: m }, s);
 
     // 2. API: 注册身份 (/api/register) - 用于保存昵称和头像
+    // 注意：此操作会覆盖同一 ID 的现有数据，无需手动清除旧数据
+    // Note: This operation overwrites existing data for the same ID, no need to manually clear old data
     if (url.pathname === '/api/register' && request.method === 'POST') {
       try {
         const { id, pub, profile } = await request.json();
         if (!id || !pub) return err('Missing data');
+        // 覆盖式更新：相同 ID 会自动覆盖，不同 ID 会创建新记录
+        // Overwrite update: same ID will be automatically overwritten, different ID will create new record
         await env.TELL_DB.put('pubkey:' + id, pub);
         if (profile) {
           await env.TELL_DB.put('profile:' + id, JSON.stringify(profile));
