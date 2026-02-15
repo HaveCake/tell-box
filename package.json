@@ -1,0 +1,24 @@
+{
+  "name": "tell-box",
+  "version": "5.1.0",
+  "description": "Anonymous encrypted messaging app on Cloudflare Workers",
+  "main": "worker.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "kv:list": "wrangler kv:namespace list",
+    "kv:create": "wrangler kv:namespace create TELL_DB"
+  },
+  "keywords": [
+    "cloudflare-workers",
+    "anonymous",
+    "encrypted-messaging",
+    "privacy"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}
