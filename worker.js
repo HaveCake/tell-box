@@ -355,7 +355,7 @@ function editProfile() {
 async function handleUrlParams() {
   const params = new URLSearchParams(location.search);
   const toAddr = params.get('to');
-  if(!toAddr) return;
+  if(!toAddr || !/^[0-9a-f]{16}$/.test(toAddr)) return;
   try {
     const res = await fetch('/api/resolve?id=' + encodeURIComponent(toAddr));
     if(res.ok) {
